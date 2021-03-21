@@ -356,6 +356,7 @@ int main (int argc, char* argv[]) {
         
         file_entry_obj.set = find_target_set(&cache_args_obj, &file_entry_obj);
         file_entry_obj.tag = find_tag(&cache_args_obj, &file_entry_obj);
+        
         cache_simulator(cache_set_obj, &file_entry_obj, &cache_results_obj, &cache_args_obj);
         print_results(&cache_results_obj, &cache_args_obj, &file_entry_obj);
         
@@ -373,6 +374,7 @@ int main (int argc, char* argv[]) {
       case 'L':
       case 'S':
         fscanf(fp, " %lx,%d\n", &file_entry_obj.hex_mem_address, &file_entry_obj.byte_size);
+        
         file_entry_obj.op = curr_char;
         file_entry_obj.set = find_target_set(&cache_args_obj, &file_entry_obj);
         file_entry_obj.tag = find_tag(&cache_args_obj, &file_entry_obj);
@@ -393,10 +395,10 @@ int main (int argc, char* argv[]) {
       default : 
         printf("default case\n");
         exit(1);
-          }
-        } 
-      fclose(fp);
-      free_memory(cache_set_obj, &cache_args_obj);
+    }
+  } 
+  fclose(fp);
+  free_memory(cache_set_obj, &cache_args_obj);
   printSummary(cache_results_obj.total_hit, cache_results_obj.total_miss, cache_results_obj.total_eviction);
   return 0;
 }
