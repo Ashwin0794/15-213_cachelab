@@ -1,3 +1,10 @@
+/* 
+  Name: Ashwin Meena Meiyappan
+  hardware cache simulator uses least recently used (LRU) replacement policy
+  when choosing which cache line to evict.  
+  course 15-213 Computer Systems -CacheLab
+*/
+
 #include "cachelab.h"
 #include <stdio.h>
 #include <unistd.h>
@@ -44,8 +51,12 @@ typedef struct _cache_results {
 } cache_results;
 
 void calculate_set_tag_mask(cache_args* cache_args_obj) {
-  cache_args_obj->set_mask = (unsigned) ((cache_args_obj->sets - 1) << cache_args_obj->bit_offset_bits);
-  cache_args_obj->tag_mask = (unsigned long)((0x1 << ( cache_args_obj->set_bits + cache_args_obj->bit_offset_bits)) - 1); 
+  cache_args_obj->set_mask = (unsigned) ((cache_args_obj->sets - 1) << 
+                                            cache_args_obj->bit_offset_bits);
+  cache_args_obj->tag_mask = (unsigned long)((0x1 << 
+                                          (cache_args_obj->set_bits +
+                                            cache_args_obj->bit_offset_bits))
+                                              - 1); 
   cache_args_obj->tag_mask = ~cache_args_obj->tag_mask;
 }
 
@@ -62,8 +73,10 @@ unsigned long find_tag(cache_args* cache_args_obj, file_entry* file_entry_obj) {
   return tag;
 }
 
+/* allocating memory for cache sets */
 cache_set* allocate_memory_for_cache(cache_args* cache_args_obj) {
-  cache_set* cache_set_obj = (cache_set*)malloc(sizeof(cache_set) * cache_args_obj->sets);
+  cache_set* cache_set_obj = (cache_set*)malloc(sizeof(cache_set) * 
+                                                  cache_args_obj->sets);
   if (cache_set_obj == NULL) {
     fprintf(stderr, "Malloc error\n");
     exit(EXIT_FAILURE);
@@ -76,6 +89,7 @@ cache_set* allocate_memory_for_cache(cache_args* cache_args_obj) {
   return cache_set_obj;
 }
 
+/* allocating memory for single cache line */
 cache_line* get_cache_line() {
   cache_line* cache_line_obj = (cache_line*)malloc(sizeof(cache_line));
   if (cache_line_obj) {
@@ -89,6 +103,7 @@ cache_line* get_cache_line() {
   exit(EXIT_FAILURE);
 }
 
+/* searching line in the target set */
 bool search_for_line(cache_set* cache_set_obj, file_entry* file_entry_obj) {
   cache_line* curr_line;
   int target_set = file_entry_obj->set;
@@ -107,7 +122,10 @@ bool search_for_line(cache_set* cache_set_obj, file_entry* file_entry_obj) {
     return false;
 }
 
-bool insert_line_at_head(cache_set* cache_set_obj, cache_line* new_line, int target_set) {
+bool insert_line_at_head(cache_set* cache_set_obj, 
+                         cache_line* new_line,
+                         int target_set) {
+
   if (cache_set_obj && new_line) {
     cache_line* line_head = cache_set_obj[target_set].head;
     new_line->next = line_head;
@@ -121,11 +139,15 @@ bool insert_line_at_head(cache_set* cache_set_obj, cache_line* new_line, int tar
 bool insert_line(cache_set* cache_set_obj, file_entry* file_entry_obj) {
   cache_line* new_line = get_cache_line();
   if (new_line && cache_set_obj && file_entry_obj) {
+
+    /* insert line when already one or more cache line exists in target set */
     if (cache_set_obj[file_entry_obj->set].head) {
       new_line->valid_bit = 1;
       new_line->tag = file_entry_obj->tag;
       return insert_line_at_head(cache_set_obj, new_line, file_entry_obj->set);
     }
+    
+    /* insert line when target set is empty */
     cache_set_obj[file_entry_obj->set].head = new_line;
     cache_set_obj[file_entry_obj->set].head->valid_bit = 1;
     cache_set_obj[file_entry_obj->set].head->tag = file_entry_obj->tag;
@@ -134,14 +156,16 @@ bool insert_line(cache_set* cache_set_obj, file_entry* file_entry_obj) {
   return false;
 }
 
-cache_line* remove_cache_line(cache_set* cache_set_obj, cache_line* cache_line_obj) {
+cache_line* remove_cache_line(cache_set* cache_set_obj, 
+                              cache_line* cache_line_obj) {
   cache_line* removed_cache_line;
-  /* if cache_line is at the end of the list */
+  
+  /* remove cache line when it is at the end of the list */
   if (cache_line_obj->next == NULL) {
     removed_cache_line = cache_line_obj;
     cache_line_obj->prev->next = NULL;
   }
-  /* if cache_line is in the middle of the list */
+  /* remove cache_line when it is in the middle of the list */
   else {
     removed_cache_line = cache_line_obj;
     cache_line_obj->prev->next = cache_line_obj->next;
@@ -152,7 +176,9 @@ cache_line* remove_cache_line(cache_set* cache_set_obj, cache_line* cache_line_o
   return removed_cache_line;
 }
 
-void cache_simulator(cache_set* cache_set_obj, file_entry* file_entry_obj, cache_results* cache_results_obj, cache_args* cache_args_obj) {
+void cache_simulator(cache_set* cache_set_obj, file_entry* file_entry_obj, 
+                     cache_results* cache_results_obj, 
+                     cache_args* cache_args_obj) {
   bool match, insert_successful;
   int target_set = file_entry_obj->set;
   cache_line* curr_cache_line;
@@ -163,7 +189,8 @@ void cache_simulator(cache_set* cache_set_obj, file_entry* file_entry_obj, cache
     /* hit */
     curr_cache_line = cache_set_obj[target_set].head;
     while (curr_cache_line != NULL) {
-      if (curr_cache_line->valid_bit && (curr_cache_line->tag == file_entry_obj->tag)) {
+      if (curr_cache_line->valid_bit && 
+         (curr_cache_line->tag == file_entry_obj->tag)) {
         break;
       }
       curr_cache_line = curr_cache_line->next;
@@ -174,8 +201,10 @@ void cache_simulator(cache_set* cache_set_obj, file_entry* file_entry_obj, cache
       cache_results_obj->hit_miss_evict_result = 'H';
       return;
     }
-    recently_used_cache_line = remove_cache_line(cache_set_obj, curr_cache_line);
-    insert_successful = insert_line_at_head(cache_set_obj, recently_used_cache_line, target_set);
+    recently_used_cache_line = 
+            remove_cache_line(cache_set_obj, curr_cache_line);
+    insert_successful = insert_line_at_head(cache_set_obj, 
+                              recently_used_cache_line, target_set);
     if (insert_successful) {
       cache_results_obj->total_hit+= 1;
       cache_results_obj->hit_miss_evict_result = 'H';
@@ -192,8 +221,10 @@ void cache_simulator(cache_set* cache_set_obj, file_entry* file_entry_obj, cache
       }
     }
     else {
-      /* miss and evict case  */
-      /* find LRU cache_line */
+      /* miss and evict case. 
+         evict according to LRU cache_line replacement policy */
+      
+      /* direct mapped cache */
       if (cache_args_obj->E_lines == 1) {
         cache_set_obj[target_set].head->tag = file_entry_obj->tag;
         cache_results_obj->total_miss+= 1;
@@ -205,10 +236,12 @@ void cache_simulator(cache_set* cache_set_obj, file_entry* file_entry_obj, cache
       while (curr_cache_line->next != NULL) {
         curr_cache_line = curr_cache_line->next;
       }
-      recently_used_cache_line = remove_cache_line(cache_set_obj, curr_cache_line);
+      recently_used_cache_line = remove_cache_line(cache_set_obj, 
+                                                curr_cache_line);
       recently_used_cache_line->valid_bit = 1;
       recently_used_cache_line->tag = file_entry_obj->tag;
-      insert_successful = insert_line_at_head(cache_set_obj, recently_used_cache_line, target_set);
+      insert_successful = insert_line_at_head(cache_set_obj, 
+                                  recently_used_cache_line, target_set);
       if (insert_successful) {
         cache_results_obj->total_miss+= 1;
         cache_results_obj->total_eviction+= 1;
@@ -243,9 +276,11 @@ void helper_function()
   fprintf(stderr,"-t <filename>\n");
 }
 
-void print_results(cache_results* cache_results_obj, cache_args* cache_args_obj, file_entry* file_entry_obj) {  
+void print_results(cache_results* cache_results_obj, 
+                   cache_args* cache_args_obj, file_entry* file_entry_obj) {  
   if (cache_args_obj->verbose) {
-    printf("%c, %lx, %d ",file_entry_obj->op, file_entry_obj->hex_mem_address, file_entry_obj->byte_size);
+    printf("%c, %lx, %d ",file_entry_obj->op, 
+           file_entry_obj->hex_mem_address, file_entry_obj->byte_size);
   
     switch (cache_results_obj->hit_miss_evict_result) {
       case'H':
@@ -274,11 +309,13 @@ int main (int argc, char* argv[]) {
   cache_results cache_results_obj;
 
   if (argc < 2) {
-    printf("./csim [hv] -s set_bits -E total_lines -b bit_offset_bits -t file_name");
+    printf("./csim [hv] -s set_bits -E total_lines -b bit_offset_bits 
+            -t file_name");
     printf("argc < 2");
     exit(EXIT_FAILURE);
   }
 
+  /* parsing command line arguments */
   while ((opt = getopt(argc, argv, "hvs:E:b:t:")) != -1) {
     switch (opt) {
       case 'h':
@@ -308,21 +345,25 @@ int main (int argc, char* argv[]) {
       
       default:
         printf("Please enter in the following format\n");
-        printf("./csim [hv] -s <set bits> -E <total number of lines> -b <bit offset bits> -t <filename>");
+        printf("./csim [hv] -s <set bits> -E <total number of lines> 
+                -b <bit offset bits> -t <filename>");
         exit(EXIT_FAILURE);
       }
   }
         
   /* Check for required mandatory options for cache simulator */
-  if (file_entry_obj.filename == NULL || cache_args_obj.set_bits == 0 || cache_args_obj.E_lines == 0 || cache_args_obj.bit_offset_bits == 0) {
+  if (file_entry_obj.filename == NULL || cache_args_obj.set_bits == 0 || 
+      cache_args_obj.E_lines == 0 || cache_args_obj.bit_offset_bits == 0) {
     printf("didn't specify all the mandatory options for cache simulator\n");
     helper_function();
     return 0;
   }  
   
   /* Check invalid inputs for set bits, cache lines, bit offset bit values */
-  if (cache_args_obj.set_bits < 1 || cache_args_obj.E_lines < 1 || cache_args_obj.bit_offset_bits < 1) {
-    printf("set_bits < 1 or E_lines < 0 or bit_offset_bits < 1 are not allowed\n");
+  if (cache_args_obj.set_bits < 1 || cache_args_obj.E_lines < 1 
+      || cache_args_obj.bit_offset_bits < 1) {
+    printf("set_bits < 1 or E_lines < 0 or bit_offset_bits < 1 are 
+            not allowed\n");
     return 0;
   }
    
@@ -341,27 +382,32 @@ int main (int argc, char* argv[]) {
     exit(1);
   }
   
+  /* parsing trace entry */
   while (!(feof(fp))) {
     
     fscanf(fp, "%c", &curr_char);
     
     switch (curr_char) {
       case 'I': 
-        fscanf(fp, " %lx,%d\n", &file_entry_obj.hex_mem_address, &file_entry_obj.byte_size);
+        fscanf(fp, " %lx,%d\n", &file_entry_obj.hex_mem_address, 
+               &file_entry_obj.byte_size);
         break;
 
       case ' ':
         // If L,S or M is the first instruction in file  
-        fscanf(fp, "%c %lx,%d\n", &file_entry_obj.op, &file_entry_obj.hex_mem_address, &file_entry_obj.byte_size);
+        fscanf(fp, "%c %lx,%d\n", &file_entry_obj.op, 
+               &file_entry_obj.hex_mem_address, &file_entry_obj.byte_size);
         
         file_entry_obj.set = find_target_set(&cache_args_obj, &file_entry_obj);
         file_entry_obj.tag = find_tag(&cache_args_obj, &file_entry_obj);
         
-        cache_simulator(cache_set_obj, &file_entry_obj, &cache_results_obj, &cache_args_obj);
+        cache_simulator(cache_set_obj, &file_entry_obj, &cache_results_obj, 
+                        &cache_args_obj);
         print_results(&cache_results_obj, &cache_args_obj, &file_entry_obj);
         
         if (file_entry_obj.op == 'M') {
-          cache_simulator(cache_set_obj, &file_entry_obj, &cache_results_obj, &cache_args_obj);
+          cache_simulator(cache_set_obj, &file_entry_obj, &cache_results_obj, 
+                          &cache_args_obj);
         }
         if (cache_args_obj.verbose && file_entry_obj.op == 'M') {
           printf(" hit\n");
@@ -373,17 +419,20 @@ int main (int argc, char* argv[]) {
       case 'M':
       case 'L':
       case 'S':
-        fscanf(fp, " %lx,%d\n", &file_entry_obj.hex_mem_address, &file_entry_obj.byte_size);
+        fscanf(fp, " %lx,%d\n", &file_entry_obj.hex_mem_address, 
+                                &file_entry_obj.byte_size);
         
         file_entry_obj.op = curr_char;
         file_entry_obj.set = find_target_set(&cache_args_obj, &file_entry_obj);
         file_entry_obj.tag = find_tag(&cache_args_obj, &file_entry_obj);
         
-        cache_simulator(cache_set_obj, &file_entry_obj, &cache_results_obj, &cache_args_obj);
+        cache_simulator(cache_set_obj, &file_entry_obj, &cache_results_obj, 
+                        &cache_args_obj);
         print_results(&cache_results_obj, &cache_args_obj, &file_entry_obj);
         
         if (file_entry_obj.op == 'M') {
-          cache_simulator(cache_set_obj, &file_entry_obj, &cache_results_obj, &cache_args_obj);
+          cache_simulator(cache_set_obj, &file_entry_obj, &cache_results_obj, 
+                          &cache_args_obj);
         }
         if (cache_args_obj.verbose && file_entry_obj.op == 'M') {
           printf(" hit\n");
@@ -399,6 +448,7 @@ int main (int argc, char* argv[]) {
   } 
   fclose(fp);
   free_memory(cache_set_obj, &cache_args_obj);
-  printSummary(cache_results_obj.total_hit, cache_results_obj.total_miss, cache_results_obj.total_eviction);
+  printSummary(cache_results_obj.total_hit, cache_results_obj.total_miss, 
+               cache_results_obj.total_eviction);
   return 0;
 }
